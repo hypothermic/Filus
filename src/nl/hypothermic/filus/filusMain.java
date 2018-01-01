@@ -88,7 +88,7 @@ public class filusMain {
 				e.printStackTrace();
 			}
 		}
-		while (propArray[8] == 0) {
+		/*while (propArray[8] == 0) {
 			// exit if proparray[8] != 0
 			ft1.start();
 			ft2.start();
@@ -99,7 +99,7 @@ public class filusMain {
 				System.out.println("Error: InterruptedException: Did something stop the Filus Threads?");
 				System.exit(1);
 			}
-		}
+		}*/
 	}
 	
 	public static void waitForThreads() throws InterruptedException {

@@ -9,6 +9,9 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
 
@@ -30,16 +33,16 @@ import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 
 import nl.hypothermic.filus.utils.filusUtils;
+import nl.hypothermic.filus.filusThread;
 
 @SuppressWarnings("deprecation")
 
 public class filusMain {
 	
 	/* Predefined vars: do NOT change */
-	static filusThread ft1 = new filusThread();
-	static filusThread ft2 = new filusThread();
-	public static int[] propArray = new int[16];
-	public static String[] propArrayS = new String[16];
+	static ExecutorService filusThreadPool = Executors.newFixedThreadPool(10);
+	public static int[] propArray = new int[32];
+	public static String[] propArrayS = new String[32];
 	private static String[] welcomeMsg = new String[]  {"<<<< Filus Crawler >>>>",
 														"\nFor Tor Hidden Services",
 														"\nCreated by Hypothermic.nl"};
@@ -49,12 +52,7 @@ public class filusMain {
 	private static String rqAgent = propArrayS[3];
 	private static String torProxyAddr = propArrayS[2];
 	private static int torProxyPort = propArray[1];
-
-	Thread crawl = new Thread(new Runnable() {
-	    public void run()
-	    {
-	         // Crawler
-	    }});  
+	private static String torControlPasswd = ""; 
 	
 	public static void main(String[] args) {
 		filusUtils.initProps();
@@ -67,14 +65,16 @@ public class filusMain {
 		torProxyAddr = propArrayS[2];
 		torProxyPort = propArray[1];
 		System.out.println(torProxyAddr);
-		try {if (/*(args[0] != null && args[0] == "debug") ||*/ propArray[9] == 1) {
+		try {if (/*commented:not working inside IDE*(args[0] != null && args[0] == "debug") ||*/ propArray[9] == 1) {
 			propArray[7] = 1;
 			System.out.println("Debug mode activated, have fun!\nInitialized ints: " + Arrays.toString(propArray) + " \\nInitialized Strings: " + Arrays.toString(propArrayS));
 		}} catch (Exception e) {
 			// normale run - geen dbg mode
+			propArray[7] = 2;
 		}
 		System.out.println(Arrays.toString(welcomeMsg).replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(",", ""));
 		if (propArray[5] == 1) {
+			//fProxyTest
 			System.out.println("Self-testing connection using fProxyTest. Addr: " + propArrayS[6]);
 			try {
 				boolean selfTestReachable = rqHandler(propArrayS[6]);
@@ -88,23 +88,106 @@ public class filusMain {
 				e.printStackTrace();
 			}
 		}
-		/*while (propArray[8] == 0) {
-			// exit if proparray[8] != 0
-			ft1.start();
-			ft2.start();
+		if (propArray[13] == 1) {
+			//fControlTest
+			System.out.println("Self-testing Tor Control Port using fControlTest. Addr: " + propArrayS[14] + " Failover: " + propArrayS[15]);
+				//main addr
+				int sctMethod = 0;
+				boolean sctMainAddrState = false;
+				try {
+					rqHandler(propArrayS[14]);
+					sctMainAddrState = true;
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				if (sctMainAddrState != false) {
+					sctMethod = 1;
+				} else {
+					//then try bak addr
+					boolean sctBakAddrState = false;
+					try {
+						rqHandler(propArrayS[15]);
+						sctBakAddrState = true;
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+					if (sctBakAddrState != false) {
+						sctMethod = 2;
+					} else {
+						System.out.println("fControlTest failed: could not reach main addr or failover addr.");
+					}
+				}
+				if (sctMethod == 1) {
+					try {
+						int retryC = 0;
+						boolean unluckyCollission = true;
+						while (unluckyCollission == true && retryC < 3) {
+							String bc = rqBody(propArrayS[14]);
+							try {
+								filusUtils.tcNewIdentity(torControlPasswd);
+							} catch (Exception e) {
+								e.printStackTrace();
+							}
+							TimeUnit.SECONDS.sleep(5);
+							String ac = rqBody(propArrayS[14]);
+							if (bc == ac) {
+								// Maybe this is an unlucky collision (same exit node as previous), try again.
+								retryC++;
+							} else {
+								// sct test is geslaagd.
+								unluckyCollission = false;
+								System.out.println("Self-test for Control Port has succeeded.");
+							}
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+						System.out.println("sct: Host unreachable");
+						System.exit(1);
+					}
+				} else if (sctMethod == 2) {
+					try {
+						int retryC = 0;
+						boolean unluckyCollission = true;
+						while (unluckyCollission == true && retryC < 3) {
+							String bc = rqBody(propArrayS[15]);
+							try {
+								filusUtils.tcNewIdentity(torControlPasswd);
+							} catch (Exception e) {
+								e.printStackTrace();
+							}
+							TimeUnit.SECONDS.sleep(5);
+							String ac = rqBody(propArrayS[15]);
+							if (bc == ac) {
+								// Maybe this is an unlucky collision (same exit node as previous), try again.
+								retryC++;
+							} else {
+								// sct test is geslaagd.
+								unluckyCollission = false;
+								System.out.println("Self-test for Control Port has succeeded. (note: bak address has been used!)");
+							}
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+						System.out.println("sct: Host unreachable");
+						System.exit(1);
+					}
+				} else {
+					System.out.println("Error: sctMethod assigned wrongly.");
+				}
+		}
+		while (propArray[8] == 0) {
+			// TODO: maak mechanisme om Filus te stoppen (aka verander propArray[8] naar !=0)
+			for (int i = 0; i < 10; i++) {
+				filusThreadPool.submit(new filusThread());
+			}
+			filusThreadPool.shutdown();
 			try {
-				waitForThreads();
+				filusThreadPool.awaitTermination(6, TimeUnit.HOURS);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
-				System.out.println("Error: InterruptedException: Did something stop the Filus Threads?");
-				System.exit(1);
+				System.out.println("Error: InterruptedException in awaiting threadPool termination");
 			}
-		}*/
-	}
-	
-	public static void waitForThreads() throws InterruptedException {
-		ft1.join();
-		ft2.join();
+		}
 	}
 	
 	public static boolean rqHandler(String addr) {
@@ -116,10 +199,10 @@ public class filusMain {
 			boolean xe = xmsg.contains("Connection refused: connect");
 			if (xe = true) {
 				System.out.println("Cannot reach the local Tor client proxy");
+				System.exit(1);
 			}
 			return false;
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			return false;
 		}
@@ -157,8 +240,47 @@ public class filusMain {
 	        httpclient.close();
 	    }
 	}
-}
+	
+	private static String rqBody(String addr) throws Exception {
+		Registry<ConnectionSocketFactory> reg = RegistryBuilder.<ConnectionSocketFactory> create()
+	            .register("http", new MyConnectionSocketFactory())
+	            .register("https", new MySSLConnectionSocketFactory(SSLContexts.createSystemDefault())).build();
+	    PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager(reg, new FakeDnsResolver());
+	    CloseableHttpClient httpclient = HttpClients.custom().setConnectionManager(cm).build();
+	    try {
+	        InetSocketAddress socksaddr = new InetSocketAddress(torProxyAddr, torProxyPort);
+	        HttpClientContext context = HttpClientContext.create();
+	        context.setAttribute("socks.address", socksaddr);
 
+	        HttpGet request = new HttpGet(addr);
+	        request.setHeader(rqAgent, rqHeader);
+
+	        System.out.println("Executing BODY request " + request + " via SOCKS proxy " + socksaddr);
+	        CloseableHttpResponse response = httpclient.execute(request, context);
+	        try {
+	            System.out.println("----------------------------------------");
+	            System.out.println(response.getStatusLine());
+	            int i = -1;
+	            InputStream stream = response.getEntity().getContent();
+	            String xout = "";
+	            while ((i = stream.read()) != -1) {
+	                System.out.print((char) i);
+	                xout = xout + Character.toString((char) i);
+	            }
+	            EntityUtils.consume(response.getEntity());
+	            return xout.replaceAll("\n", "").replaceAll("\r", "");
+	        } finally {
+	            response.close();
+	        }
+	    } finally {
+	        httpclient.close();
+	    }
+	}
+	
+	public static void setControlPasswd(String x) {
+		torControlPasswd = x;
+	}
+}
 class FakeDnsResolver implements DnsResolver {
     @Override
     public InetAddress[] resolve(String host) throws UnknownHostException {

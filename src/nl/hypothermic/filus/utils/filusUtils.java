@@ -18,6 +18,7 @@ public class filusUtils {
 	static SecureRandom random = new SecureRandom();
 	
 	public static String randomString(int len) {
+		// om base32/rfc adres te bouwen
 		String AB = "234567abcdefghijklmnopqrstuvwxyz";
 		StringBuilder sb = new StringBuilder(len);
 		for(int i = 0; i < len; i++) 
@@ -25,26 +26,26 @@ public class filusUtils {
 		return sb.toString();
 	}
 	
-	public static void tcNewIdentity() {
-		try {
-	        Socket socket = new Socket("localhost", 9052);
-	        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-	        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-	        out.println("AUTHENTICATE \"###uperUser999\"");
-	        String xyz = in.readLine();
-	        System.out.println("Authenticate answer: " + xyz);
-	        if (xyz.contains("250")) {
-	        	out.println("SIGNAL NEWNYM");
-	        	System.out.println("NewNym answer: " + in.readLine());
-	        } else {
-	        	System.out.println("Nope." + xyz);
-	        }
-	        out.close();
-	        in.close();
-	        socket.close();
-	    } catch (Exception e) {
-	        e.printStackTrace();
-	    }
+	public static void tcNewIdentity(String controlPasswd) throws Exception {
+		// om identiteit te veranderen (nieuw IP addr)
+        Socket socket = new Socket(filusMain.propArrayS[11], filusMain.propArray[10]);
+        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        out.println("AUTHENTICATE \"" + controlPasswd + "\"");
+        String xyz = in.readLine();
+        System.out.println("Authenticate answer: " + xyz);
+        if (xyz.contains("250")) {
+        	out.println("SIGNAL NEWNYM");
+       		System.out.println("NewNym answer: " + in.readLine());
+        } else if (xyz.contains("250")) {
+        	System.out.println("Error: wrong password!!");
+        } else {
+	        System.out.println("Nope." + xyz);
+	        throw new Exception();
+        }
+        out.close();
+        in.close();
+        socket.close();
 	}
 	
 	public static void initProps() {
@@ -59,6 +60,12 @@ public class filusUtils {
 		 * 7 - debug mode (niet in cfg)
 		 * 8 - exited (niet in cfg)
 		 * 9 - debug via config
+		 * 10 - torControl-port
+		 * 11 - torControl-addr
+		 * 12 - torControl-passwd (zie warning: unhashed passwd) [Removed, now private with setter!]
+		 * 13 - fControlTest-enable
+		 * 14 - fControlTest-addr
+		 * 15 - fControlTest-failover (ook "bak addr" genoemd, te lui om te renamen lol.)
 		 */
     	File propsExist = new File("filus.properties");
     	if (propsExist.exists() && !propsExist.isDirectory()) {
@@ -105,9 +112,9 @@ public class filusUtils {
     			// Laad fProxyTest-addr
     			try {
     				filusMain.propArrayS[6] = props.getProperty("fProxyTest-addr");
-    			} catch (NumberFormatException e) {
+    			} catch (Exception e) {
     				e.printStackTrace();
-    				System.out.println("[F] NumberFormatException in property fProxyTest-addr: " + e);
+    				System.out.println("[F] Exception in property fProxyTest-addr: " + e);
     			}
     			// Laad fProxyTest-enable
     			try {
@@ -117,6 +124,51 @@ public class filusUtils {
     				e.printStackTrace();
     				System.out.println("[F] NumberFormatException in property filusDebug: " + e);
     			}
+    			// Laad torControl-port
+    			try {
+    				int x = Integer.parseInt(props.getProperty("torControl-port"));
+    				filusMain.propArray[10] = x;
+    			} catch (NumberFormatException e) {
+    				e.printStackTrace();
+    				System.out.println("[F] NumberFormatException in property torControl-port: " + e);
+    			}
+    			// Laad torControl-addr
+    			try {
+    				filusMain.propArrayS[11] = props.getProperty("torControl-addr");
+    			} catch (Exception e) {
+    				e.printStackTrace();
+    				System.out.println("[F] Exception in property torControl-addr: " + e);
+    			}
+    			// Laad torControl-passwd (warning: plaintext!!, kan niet met hashed pw helaas.)
+    			try {
+    				filusMain.setControlPasswd(props.getProperty("torControl-passwd"));
+    			} catch (Exception e) {
+    				e.printStackTrace();
+    				System.out.println("[F] Exception in property torControl-passwd: " + e);
+    			}
+    			// Laad fControlTest-enable
+    			try {
+    				int x = Integer.parseInt(props.getProperty("fControlTest-enable"));
+    				filusMain.propArray[13] = x;
+    			} catch (NumberFormatException e) {
+    				e.printStackTrace();
+    				System.out.println("[F] NumberFormatException in property fControlTest-enable: " + e);
+    			}
+    			// Laad fControlTest-addr
+    			try {
+    				filusMain.propArrayS[14] = props.getProperty("fControlTest-addr");
+    			} catch (Exception e) {
+    				e.printStackTrace();
+    				System.out.println("[F] Exception in property fControlTest-addr: " + e);
+    			}
+    			// Laad fControlTest-addr
+    			try {
+    				filusMain.propArrayS[15] = props.getProperty("fControlTest-addr-failover");
+    			} catch (Exception e) {
+    				e.printStackTrace();
+    				System.out.println("[F] Exception in property fControlTest-addr-failover: " + e);
+    			}
+
     		} catch (Exception x3) {
     			x3.printStackTrace();
     		}
@@ -130,12 +182,18 @@ public class filusUtils {
     		props.setProperty("rqAgent", "MyUserAgent");
     		props.setProperty("rqHeader", "MyHeader");
     		props.setProperty("fProxyTest-enable", "1");
-    		props.setProperty("fProxyTest-addr", "www.hypothermic.nl");
+    		props.setProperty("fProxyTest-addr", "http://www.neverssl.com");
     		props.setProperty("fThreads-count", "2");
     		props.setProperty("filusDebug", "1");
+    		props.setProperty("torControl-port", "9053");
+    		props.setProperty("torControl-addr", "127.0.0.1");
+    		props.setProperty("torControl-passwd", "none");
+    		props.setProperty("fControlTest-enable", "1");
+    		props.setProperty("fControlTest-addr", "http://checkip.amazonaws.com/");
+    		props.setProperty("fControlTest-addr-failover", "http://icanhazip.com/");
     		try {
     			propwrite = new FileWriter("filus.properties");
-    			props.store(propwrite, "Filus Crawler by Hypothermic\nPlease note that fThreads-count is (still) hardcoded.\nhttps://github.com/hypothermic\nhttps://www.hypothermic.nl");
+    			props.store(propwrite, "Filus Crawler by Hypothermic\nPlease note that fThreads-count is (still) hardcoded.\nSet control passwd in plain text, and restrict reading this file to root and the java user!!\nPlease do not enable fControlTest if fProxyTest is disabled.\nhttps://github.com/hypothermic\nhttps://www.hypothermic.nl");
     			propwrite.close();
     		} catch (IOException x1) {
     			x1.printStackTrace();

@@ -7,6 +7,7 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
@@ -16,11 +17,13 @@ import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLContext;
 
 import org.apache.http.HttpHost;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.ConnectTimeoutException;
 import org.apache.http.conn.DnsResolver;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
@@ -40,12 +43,14 @@ import nl.hypothermic.filus.filusThread;
 public class filusMain {
 	
 	/* Predefined vars: do NOT change */
-	static ExecutorService filusThreadPool = Executors.newFixedThreadPool(10);
+	//comment:init bij elke loop*static ExecutorService filusThreadPool = Executors.newFixedThreadPool(10);
+	public static int loopIteration = 0;
 	public static int[] propArray = new int[32];
 	public static String[] propArrayS = new String[32];
 	private static String[] welcomeMsg = new String[]  {"<<<< Filus Crawler >>>>",
 														"\nFor Tor Hidden Services",
-														"\nCreated by Hypothermic.nl"};
+														"\nCreated by Hypothermic.nl",
+														"\nSee properties file for info"};
 	/* Work with strings wherever possible instead of int's because they are easier to load from config! */
 	/* Test URL: deepdot35Wvmeyd5.onion */
 	private static String rqHeader = propArrayS[4];
@@ -64,7 +69,6 @@ public class filusMain {
 		rqAgent = propArrayS[3];
 		torProxyAddr = propArrayS[2];
 		torProxyPort = propArray[1];
-		System.out.println(torProxyAddr);
 		try {if (/*commented:not working inside IDE*(args[0] != null && args[0] == "debug") ||*/ propArray[9] == 1) {
 			propArray[7] = 1;
 			System.out.println("Debug mode activated, have fun!\nInitialized ints: " + Arrays.toString(propArray) + " \\nInitialized Strings: " + Arrays.toString(propArrayS));
@@ -74,14 +78,14 @@ public class filusMain {
 		}
 		System.out.println(Arrays.toString(welcomeMsg).replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(",", ""));
 		if (propArray[5] == 1) {
-			//fProxyTest
-			System.out.println("Self-testing connection using fProxyTest. Addr: " + propArrayS[6]);
+			//------------------------------fProxyTest------------------------------
+			System.out.println("[FSPT] Self-testing connection using fProxyTest. Addr: " + propArrayS[6]);
 			try {
 				boolean selfTestReachable = rqHandler(propArrayS[6]);
 				if (selfTestReachable == true) {
-					System.out.println("Self-testing: success!");
+					System.out.println("[FSPT] Self-testing: success!");
 				} else {
-					System.out.println("Self-testing: not reachable. Check your proxy config.");
+					System.out.println("[FSPT] Self-testing: not reachable. Check your proxy config.");
 					System.exit(1);
 				}
 			} catch (Exception e) {
@@ -89,8 +93,8 @@ public class filusMain {
 			}
 		}
 		if (propArray[13] == 1) {
-			//fControlTest
-			System.out.println("Self-testing Tor Control Port using fControlTest. Addr: " + propArrayS[14] + " Failover: " + propArrayS[15]);
+			//------------------------------fControlTest------------------------------
+			System.out.println("[FSCT] Self-testing Tor Control Port using fControlTest. Addr: " + propArrayS[14] + " Failover: " + propArrayS[15]);
 				//main addr
 				int sctMethod = 0;
 				boolean sctMainAddrState = false;
@@ -114,7 +118,7 @@ public class filusMain {
 					if (sctBakAddrState != false) {
 						sctMethod = 2;
 					} else {
-						System.out.println("fControlTest failed: could not reach main addr or failover addr.");
+						System.out.println("[FSCT] fControlTest failed: could not reach main addr or failover addr.");
 					}
 				}
 				if (sctMethod == 1) {
@@ -136,12 +140,12 @@ public class filusMain {
 							} else {
 								// sct test is geslaagd.
 								unluckyCollission = false;
-								System.out.println("Self-test for Control Port has succeeded.");
+								System.out.println("[FSCT] Self-test for Control Port has succeeded.");
 							}
 						}
 					} catch (Exception e) {
 						e.printStackTrace();
-						System.out.println("sct: Host unreachable");
+						System.out.println("[FSCT] sct: Host unreachable");
 						System.exit(1);
 					}
 				} else if (sctMethod == 2) {
@@ -163,29 +167,42 @@ public class filusMain {
 							} else {
 								// sct test is geslaagd.
 								unluckyCollission = false;
-								System.out.println("Self-test for Control Port has succeeded. (note: bak address has been used!)");
+								System.out.println("[FSCT] Self-test for Control Port has succeeded. (note: bak address has been used!)");
 							}
 						}
 					} catch (Exception e) {
 						e.printStackTrace();
-						System.out.println("sct: Host unreachable");
+						System.out.println("[FSCT] sct: Host unreachable");
 						System.exit(1);
 					}
 				} else {
-					System.out.println("Error: sctMethod assigned wrongly.");
+					System.out.println("[FSCT] Error: sctMethod assigned wrongly.");
 				}
 		}
+		//------------------------------FilusCrawler------------------------------
+		System.out.println("[FILUS] Starting onion scanner.");
+		loopIteration = 0;
 		while (propArray[8] == 0) {
-			// TODO: maak mechanisme om Filus te stoppen (aka verander propArray[8] naar !=0)
-			for (int i = 0; i < 10; i++) {
+			// TODO: maak mechanisme om Filus te stoppen (aka verander propArray[8] naar !=0)\
+			loopIteration++;
+			System.out.println("[F] Executing new scan iteration: " + loopIteration);
+			ExecutorService filusThreadPool = Executors.newFixedThreadPool(propArray[16]);
+			for (int i = 0; i < propArray[16]; i++) {
 				filusThreadPool.submit(new filusThread());
 			}
 			filusThreadPool.shutdown();
 			try {
-				filusThreadPool.awaitTermination(6, TimeUnit.HOURS);
+				// hardcoded omdat de threads zichzelf zullen terminaten, dus niet nodig.
+				filusThreadPool.awaitTermination(12, TimeUnit.HOURS);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 				System.out.println("Error: InterruptedException in awaiting threadPool termination");
+			}
+			try {
+				filusUtils.tcNewIdentity(torControlPasswd);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 	}
@@ -197,10 +214,15 @@ public class filusMain {
 		} catch (SocketException x) {
 			String xmsg = x.toString();
 			boolean xe = xmsg.contains("Connection refused: connect");
-			if (xe = true) {
-				System.out.println("Cannot reach the local Tor client proxy");
+			if (xe == true) {
+				System.out.println("> Error: Cannot reach the local Tor client proxy");
+				if (loopIteration > 0) { System.out.println("[F] Info: if this happens frequently, try setting a greater value for the timeout between GET requests, setting fThreads-count to less, or if you have bridges enabled: turn off bridges."); }
 				System.exit(1);
 			}
+			return false;
+		} catch (SocketTimeoutException stx) {
+			return false;
+		} catch (ConnectTimeoutException ctx)  { 
 			return false;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -213,16 +235,19 @@ public class filusMain {
 	            .register("http", new MyConnectionSocketFactory())
 	            .register("https", new MySSLConnectionSocketFactory(SSLContexts.createSystemDefault())).build();
 	    PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager(reg, new FakeDnsResolver());
-	    CloseableHttpClient httpclient = HttpClients.custom().setConnectionManager(cm).build();
+	    CloseableHttpClient httpclient = HttpClients.custom().setConnectionManager(cm).setConnectionTimeToLive(10, TimeUnit.SECONDS).build();
 	    try {
 	        InetSocketAddress socksaddr = new InetSocketAddress(torProxyAddr, torProxyPort);
 	        HttpClientContext context = HttpClientContext.create();
 	        context.setAttribute("socks.address", socksaddr);
 
+	        RequestConfig rqConfig = RequestConfig.custom().setConnectTimeout(30000).build();
+	        
 	        HttpGet request = new HttpGet(addr);
 	        request.setHeader(rqAgent, rqHeader);
+	        request.setConfig(rqConfig);
 
-	        System.out.println("Executing request " + request + " via SOCKS proxy " + socksaddr);
+	        if (propArray[9] == 1) { System.out.println("[F] LI" + loopIteration + " Debug: Executing request " + request + " via TORSOCKS5 proxy " + socksaddr); }
 	        CloseableHttpResponse response = httpclient.execute(request, context);
 	        try {
 	            System.out.println("----------------------------------------");
@@ -252,10 +277,15 @@ public class filusMain {
 	        HttpClientContext context = HttpClientContext.create();
 	        context.setAttribute("socks.address", socksaddr);
 
+	        RequestConfig rqConfig = RequestConfig.custom().setConnectTimeout(propArray[18]).build();
+	        
 	        HttpGet request = new HttpGet(addr);
 	        request.setHeader(rqAgent, rqHeader);
+	        request.setConfig(rqConfig);
+	        
+	        // geen rq timeout want rqBody wordt alleen geexecuteerd als site bereikbaar is
 
-	        System.out.println("Executing BODY request " + request + " via SOCKS proxy " + socksaddr);
+	        System.out.println("Executing BODY request " + request + " via TORSOCKS5 proxy " + socksaddr);
 	        CloseableHttpResponse response = httpclient.execute(request, context);
 	        try {
 	            System.out.println("----------------------------------------");
@@ -309,7 +339,8 @@ class MyConnectionSocketFactory extends PlainConnectionSocketFactory {
 
 class MySSLConnectionSocketFactory extends SSLConnectionSocketFactory {
 
-    public MySSLConnectionSocketFactory(final SSLContext sslContext) {
+    @SuppressWarnings("deprecation") //warning maakt niet uit omdat 'deprecated' dingen nogsteeds werken :P
+	public MySSLConnectionSocketFactory(final SSLContext sslContext) {
         // You may need this verifier if target site's certificate is not secure
         super(sslContext, ALLOW_ALL_HOSTNAME_VERIFIER);
     }

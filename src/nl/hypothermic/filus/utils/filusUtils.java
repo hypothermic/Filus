@@ -66,6 +66,10 @@ public class filusUtils {
 		 * 13 - fControlTest-enable
 		 * 14 - fControlTest-addr
 		 * 15 - fControlTest-failover (ook "bak addr" genoemd, te lui om te renamen lol.)
+		 * 16 - fThreads-count
+		 * 17 - fConnTimeout
+		 * 18 - fControlTest-connTimeout
+		 * 19 - fProxyTest-connTimeout
 		 */
     	File propsExist = new File("filus.properties");
     	if (propsExist.exists() && !propsExist.isDirectory()) {
@@ -168,6 +172,38 @@ public class filusUtils {
     				e.printStackTrace();
     				System.out.println("[F] Exception in property fControlTest-addr-failover: " + e);
     			}
+    			// Laad fThreads-count
+    			try {
+    				int x = Integer.parseInt(props.getProperty("fThreads-count"));
+    				filusMain.propArray[16] = x;
+    			} catch (NumberFormatException e) {
+    				e.printStackTrace();
+    				System.out.println("[F] NumberFormatException in property fThreads-count: " + e);
+    			}
+    			// Laad fConnTimeout
+    			try {
+    				int x = Integer.parseInt(props.getProperty("fConnTimeout"));
+    				filusMain.propArray[17] = x;
+    			} catch (NumberFormatException e) {
+    				e.printStackTrace();
+    				System.out.println("[F] NumberFormatException in property fConnTimeout: " + e);
+    			}
+    			if (filusMain.propArray[13] == 1) { // Laad fControlTest-connTimeout als hij enabled staat.
+    			try {
+    				int x = Integer.parseInt(props.getProperty("fControlTest-connTimeout"));
+    				filusMain.propArray[18] = x;
+    			} catch (NumberFormatException e) {
+    				e.printStackTrace();
+    				System.out.println("[F] NumberFormatException in property fControlTest-connTimeout: " + e);
+    			}}
+    			if (filusMain.propArray[5] == 1) { // Laad fProxyTest-connTimeout als hij enabled staat.
+    			try {
+    				int x = Integer.parseInt(props.getProperty("fProxyTest-connTimeout"));
+    				filusMain.propArray[19] = x;
+    			} catch (NumberFormatException e) {
+    				e.printStackTrace();
+    				System.out.println("[F] NumberFormatException in property fProxy-connTimeout: " + e);
+    			}}
 
     		} catch (Exception x3) {
     			x3.printStackTrace();
@@ -183,17 +219,20 @@ public class filusUtils {
     		props.setProperty("rqHeader", "MyHeader");
     		props.setProperty("fProxyTest-enable", "1");
     		props.setProperty("fProxyTest-addr", "http://www.neverssl.com");
-    		props.setProperty("fThreads-count", "2");
+    		props.setProperty("fThreads-count", "8");
     		props.setProperty("filusDebug", "1");
     		props.setProperty("torControl-port", "9053");
     		props.setProperty("torControl-addr", "127.0.0.1");
-    		props.setProperty("torControl-passwd", "none");
+    		props.setProperty("torControl-passwd", "MyGreatPassword");
     		props.setProperty("fControlTest-enable", "1");
     		props.setProperty("fControlTest-addr", "http://checkip.amazonaws.com/");
     		props.setProperty("fControlTest-addr-failover", "http://icanhazip.com/");
+    		props.setProperty("fConnTimeout", "15000");
+    		props.setProperty("fControlTest-connTimeout", "30000");
+    		props.setProperty("fProxyTest-connTimeout", "30000");
     		try {
     			propwrite = new FileWriter("filus.properties");
-    			props.store(propwrite, "Filus Crawler by Hypothermic\nPlease note that fThreads-count is (still) hardcoded.\nSet control passwd in plain text, and restrict reading this file to root and the java user!!\nPlease do not enable fControlTest if fProxyTest is disabled.\nhttps://github.com/hypothermic\nhttps://www.hypothermic.nl");
+    			props.store(propwrite, "Filus Crawler by Hypothermic\nMore info about this file in README.md\nSet control passwd in plain text, and restrict reading this file to root and the java user!!\nPlease do not enable fControlTest if fProxyTest is disabled.\nhttps://github.com/hypothermic\nhttps://www.hypothermic.nl");
     			propwrite.close();
     		} catch (IOException x1) {
     			x1.printStackTrace();

@@ -2,14 +2,17 @@ package nl.hypothermic.filus.utils;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.security.SecureRandom;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.Properties;
+import java.util.Vector;
 
 import nl.hypothermic.filus.filusMain;
 
@@ -37,8 +40,9 @@ public class filusUtils {
         if (xyz.contains("250")) {
         	out.println("SIGNAL NEWNYM");
        		System.out.println("NewNym answer: " + in.readLine());
-        } else if (xyz.contains("250")) {
-        	System.out.println("Error: wrong password!!");
+        } else if (xyz.contains("515")) {
+        	System.out.println("> Error: wrong password!");
+        	System.exit(1);
         } else {
 	        System.out.println("Nope." + xyz);
 	        throw new Exception();
@@ -69,7 +73,10 @@ public class filusUtils {
 		 * 16 - fThreads-count
 		 * 17 - fConnTimeout
 		 * 18 - fControlTest-connTimeout
-		 * 19 - fProxyTest-connTimeout
+		 * 19 - fProxyTest-connTimeout (todo, gebruik tijdelijk fConnTimeout.)
+		 * 20 - fWebMonitor-enable
+		 * 21 - fWebMonitor-port
+		 * 22 - fWebMonitor-addr
 		 */
     	File propsExist = new File("filus.properties");
     	if (propsExist.exists() && !propsExist.isDirectory()) {
@@ -204,39 +211,70 @@ public class filusUtils {
     				e.printStackTrace();
     				System.out.println("[F] NumberFormatException in property fProxy-connTimeout: " + e);
     			}}
+    			// Laad fWebMonitor-enable
+    			try {
+    				int x = Integer.parseInt(props.getProperty("fWebMonitor-enable"));
+    				filusMain.propArray[20] = x;
+    			} catch (NumberFormatException e) {
+    				e.printStackTrace();
+    				System.out.println("[F] NumberFormatException in property fWebMonitor-enable: " + e);
+    			}
+    			if (filusMain.propArray[20] == 1) { // Laad fWebMonitor-port als hij enabled staat.
+    			try {
+    				int x = Integer.parseInt(props.getProperty("fWebMonitor-port"));
+    				filusMain.propArray[21] = x;
+    			} catch (NumberFormatException e) {
+    				e.printStackTrace();
+    				System.out.println("[F] NumberFormatException in property fWebMonitor-port: " + e);
+    			}}
+    			if (filusMain.propArray[20] == 1) { // Laad fWebMonitor-addr als hij enabled staat.
+    			try {
+    				filusMain.propArrayS[22] = props.getProperty("fWebMonitor-addr");
+    			} catch (NumberFormatException e) {
+    				e.printStackTrace();
+    				System.out.println("[F] NumberFormatException in property fWebMonitor-addr: " + e);
+    			}}
 
     		} catch (Exception x3) {
     			x3.printStackTrace();
     		}
     	} else {
     		// Set first-run && mk props file
+    		FileOutputStream propwrite = null;
     		filusMain.propArray[0] = 1;
-    		FileWriter propwrite = null;
-    		Properties props = new Properties();
-    		props.setProperty("torProxy-port", "9052");
-    		props.setProperty("torProxy-addr", "127.0.0.1");
-    		props.setProperty("rqAgent", "MyUserAgent");
-    		props.setProperty("rqHeader", "MyHeader");
-    		props.setProperty("fProxyTest-enable", "1");
-    		props.setProperty("fProxyTest-addr", "http://www.neverssl.com");
-    		props.setProperty("fThreads-count", "8");
-    		props.setProperty("filusDebug", "1");
-    		props.setProperty("torControl-port", "9053");
-    		props.setProperty("torControl-addr", "127.0.0.1");
-    		props.setProperty("torControl-passwd", "MyGreatPassword");
-    		props.setProperty("fControlTest-enable", "1");
-    		props.setProperty("fControlTest-addr", "http://checkip.amazonaws.com/");
-    		props.setProperty("fControlTest-addr-failover", "http://icanhazip.com/");
-    		props.setProperty("fConnTimeout", "15000");
-    		props.setProperty("fControlTest-connTimeout", "30000");
-    		props.setProperty("fProxyTest-connTimeout", "30000");
+    		SortedProperties props = new SortedProperties();
+    		props.put("torProxy-port", "9052");
+    		props.put("torProxy-addr", "127.0.0.1");
+    		props.put("rqAgent", "MyUserAgent");
+    		props.put("rqHeader", "MyHeader");
+    		props.put("fProxyTest-enable", "1");
+    		props.put("fProxyTest-addr", "http://www.neverssl.com");
+    		props.put("fThreads-count", "8");
+    		props.put("filusDebug", "1");
+    		props.put("torControl-port", "9053");
+    		props.put("torControl-addr", "127.0.0.1");
+    		props.put("torControl-passwd", "MyGreatPassword");
+    		props.put("fControlTest-enable", "1");
+    		props.put("fControlTest-addr", "http://checkip.amazonaws.com/");
+    		props.put("fControlTest-addr-failover", "http://icanhazip.com/");
+    		props.put("fConnTimeout", "15000");
+    		props.put("fControlTest-connTimeout", "30000");
+    		props.put("fProxyTest-connTimeout", "30000");
+    		props.put("fWebMonitor-enable", "0");
+    		props.put("fWebMonitor-port", "80");
+    		props.put("fWebMonitor-addr", "127.0.0.1");
     		try {
-    			propwrite = new FileWriter("filus.properties");
-    			props.store(propwrite, "Filus Crawler by Hypothermic\nMore info about this file in README.md\nSet control passwd in plain text, and restrict reading this file to root and the java user!!\nPlease do not enable fControlTest if fProxyTest is disabled.\nhttps://github.com/hypothermic\nhttps://www.hypothermic.nl");
+    			propwrite = new FileOutputStream("filus.properties");
+    			props.store(propwrite, "Filus Crawler by Hypothermic\n"
+    					+ "More info about configurating Filus is in README.md\n"
+    					+ "Set control passwd in plain text, and restrict reading this file to root and the java user!!\n"
+    					+ "Please do not enable fControlTest if fProxyTest is disabled.\n"
+    					+ "https://github.com/hypothermic\n"
+    					+ "https://www.hypothermic.nl");
     			propwrite.close();
     		} catch (IOException x1) {
     			x1.printStackTrace();
-    			System.out.println("[F] I/O Exception: " + x1 +  " \n");
+    			System.out.println("[F] I/O Exception while writing props: " + x1 +  " \n");
     		} finally {
     			if (propwrite != null) {
     				try {
@@ -248,4 +286,19 @@ public class filusUtils {
     		}
     	}
     }
+}
+
+class SortedProperties extends Properties {
+
+	private static final long serialVersionUID = -101207321624475904L;
+
+	public Enumeration keys() {
+	     Enumeration keysEnum = super.keys();
+	     Vector<String> keyList = new Vector<String>();
+	     while(keysEnum.hasMoreElements()){
+	       keyList.add((String)keysEnum.nextElement());
+	     }
+	     Collections.sort(keyList);
+	     return keyList.elements();
+	  }
 }

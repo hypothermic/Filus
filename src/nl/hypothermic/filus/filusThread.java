@@ -19,6 +19,7 @@ public class filusThread implements Runnable {
 			PrintWriter z = new PrintWriter("onions-found.md", "UTF-8");
 			z.println("[FILUS] " + sdf.format(cal.getTime()) + " Found a hidden service: " + x);
 			z.close();
+			filusMain.foundOnions.add(x);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		} catch (UnsupportedEncodingException e) {

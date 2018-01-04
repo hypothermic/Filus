@@ -9,7 +9,9 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -36,6 +38,7 @@ import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 
 import nl.hypothermic.filus.utils.filusUtils;
+import nl.hypothermic.filus.websrv.filusWebMonitor;
 import nl.hypothermic.filus.filusThread;
 
 @SuppressWarnings("deprecation")
@@ -44,6 +47,7 @@ public class filusMain {
 	
 	/* Predefined vars: do NOT change */
 	//comment:init bij elke loop*static ExecutorService filusThreadPool = Executors.newFixedThreadPool(10);
+	public static List<String> foundOnions = new ArrayList<String>();
 	public static int loopIteration = 0;
 	public static int[] propArray = new int[32];
 	public static String[] propArrayS = new String[32];
@@ -51,12 +55,12 @@ public class filusMain {
 														"\nFor Tor Hidden Services",
 														"\nCreated by Hypothermic.nl",
 														"\nSee properties file for info"};
-	/* Work with strings wherever possible instead of int's because they are easier to load from config! */
+	/* Work with strings wherever possible instead of int's because they are easier to load from config! No booleans btw. */
 	/* Test URL: deepdot35Wvmeyd5.onion */
-	private static String rqHeader = propArrayS[4];
-	private static String rqAgent = propArrayS[3];
-	private static String torProxyAddr = propArrayS[2];
-	private static int torProxyPort = propArray[1];
+	private static String rqHeader;
+	private static String rqAgent;
+	private static String torProxyAddr;
+	private static int torProxyPort;
 	private static String torControlPasswd = ""; 
 	
 	public static void main(String[] args) {
@@ -79,6 +83,11 @@ public class filusMain {
 		System.out.println(Arrays.toString(welcomeMsg).replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(",", ""));
 		if (propArray[5] == 1) {
 			//------------------------------fProxyTest------------------------------
+			try {
+				filusUtils.tcNewIdentity(torControlPasswd);
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
 			System.out.println("[FSPT] Self-testing connection using fProxyTest. Addr: " + propArrayS[6]);
 			try {
 				boolean selfTestReachable = rqHandler(propArrayS[6]);
@@ -179,6 +188,18 @@ public class filusMain {
 					System.out.println("[FSCT] Error: sctMethod assigned wrongly.");
 				}
 		}
+		//------------------------------FilusWebMonitor------------------------------
+		// TODO: testen van webserver 
+	    Thread fwm = new Thread(new Runnable() {
+	    public void run(){
+	        	if (propArray[20] == 1) { try {
+				System.out.println("[FWM] Filus Web Monitor is starting...");
+				filusWebMonitor.main(null);
+			} catch (IOException x) {
+				x.printStackTrace();
+			}}
+	    }});  
+	    fwm.start();
 		//------------------------------FilusCrawler------------------------------
 		System.out.println("[FILUS] Starting onion scanner.");
 		loopIteration = 0;
@@ -241,7 +262,7 @@ public class filusMain {
 	        HttpClientContext context = HttpClientContext.create();
 	        context.setAttribute("socks.address", socksaddr);
 
-	        RequestConfig rqConfig = RequestConfig.custom().setConnectTimeout(30000).build();
+	        RequestConfig rqConfig = RequestConfig.custom().setConnectTimeout(propArray[17]).build();
 	        
 	        HttpGet request = new HttpGet(addr);
 	        request.setHeader(rqAgent, rqHeader);

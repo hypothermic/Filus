@@ -72,10 +72,10 @@ HashedControlPassword 16:72C58F5D039F7C0D60700B59333EA10C499E6061DAF70B748CB8413
 ```
 
 Short explanation of abbrevations:
-[F] = Filus
-[FSPT] = Filus Self Proxy Test
-[FSCT] = Filus Self Control Test
-[FWM] = Filus Web Monitor
+[F] = Filus  
+[FSPT] = Filus Self Proxy Test  
+[FSCT] = Filus Self Control Test  
+[FWM] = Filus Web Monitor  
 
 # Mentions
 Learn more about Tor here: www.torproject.org  
